@@ -1,0 +1,505 @@
+---
+title: "SWIB24: Leukemia Data Analysis"
+date: "Thanks to Professor David Harrington and Julie Vu (Harvard) for material."
+fontsize: 11pt
+geometry: margin=1in
+output:
+  pdf_document:
+    includes:
+      in_header: header.tex
+    fig_width: 5
+    fig_height: 3.5
+editor_options: 
+  chunk_output_type: console
+---
+
+\textbf{Reading on graphical summaries}      
+
+- *OI Biostat*: Section 1.6 and earlier material on numerical and graphical summaries.
+
+\vspace{1cm}
+
+\textbf{Golub Leukemia Data.} Gene expression data for 7,129 genes were collected from 72 children with acute leukemia, of which 47 had acute lymphoblastic leukemia (ALL) and 25 had acute myeloblastic leukemia (AML). The goal of the experiment was to identify genes that are differentially expressed between ALL versus AML, in order to develop a strategy for diagnosing leukemia type based on gene expression data.
+
+\begin{center}
+\textit{Can childhood leukemia be diagnosed using molecular measurements and software?}
+\end{center}
+
+In other words, are there two sets of genes in a leukemia sample: one that is highly expressed in ALL patients but not in AML, and the other highly expressed in AML patients but not ALL?
+
+Some questions to think about:
+
+\begin{enumerate}
+
+  \item \textit{Differential genes} Can we identify a set of individual genes that are expressed in ALL cancers when compared to AML cancers?
+  
+  \item \textit{Classification} Can we distinguish AML from ALL using a subset of genes by building a prediction algorithm? Some algorithms to try include Lasso, Elastic Net, the SuperLearner library.
+  
+  \item \textit{Visualization} Can we visualize the results using methods such as a heatmap?
+  
+  \item \textit{Interpretation} How do your findings compare to those published in the paper by Golub, T et al (1999).  
+  \end{enumerate}
+  
+\vspace{1cm}
+
+Variables in the dataset:
+
+  - \texttt{Samples}: Sample or chip number. The material from each patient was examined on a separate chip and experimental run.
+  - \texttt{BM.PB}: Type of patient material analyzed. BM denotes bone marrow; PB denotes a peripheral blood sample.
+  - \texttt{Gender}: \texttt{F} for female, \texttt{M} for male.
+  - \texttt{Source}: Hospital where the patient was treated.
+  - \texttt{tissue.mf}: A variable showing the combination of type of patient material and sex of the patient. For example, \texttt{BM:f} indicates a bone marrow sample from a female patient.
+  - \texttt{cancer}: The type of leukemia, with a notation for subtype within ALL. \texttt{aml} is AML, \texttt{allB} is ALL which started in B-cells (cells that mature into plasma cells), and \texttt{allT} is ALL with T-cell origin (T-cells are a type of white blood cell).
+  
+\newpage
+
+### Some code to help you get started 
+
+1. After loading the Golub data, execute the following code to create a matrix called \texttt{gene.matrix} that only contains gene expression values:
+
+```{r}
+## load data -- please change below to specify the directory where you data is stored
+#load("golub_exprs_pheno.Rdata")
+load("~/Documents/UMASS BIOSTATS/golub_exprs_pheno.Rdata")
+
+Golub <- golub.exprs.pheno
+
+## Check the dimensions of the Golub matrix
+dim(Golub)
+
+## View the frcolumn names of the Golub matrix 
+colnames(Golub)[1:10]
+
+#create gene.matrix, trimmed version of Golub dataset
+gene.matrix = as.matrix(Golub[,-(1:6)])
+
+library(tidyverse)
+library(glmnet)
+library(caret)
+
+
+```
+
+Matrix notation is used to specify rows and columns. For a dataframe \texttt{A}, \texttt{A[i, j]} refers to the element in row \texttt{i} and column \texttt{j}. \texttt{A[i,]} refers to row \texttt{i} and \texttt{A[,j]} refers to column \texttt{j}.
+
+How does \texttt{gene.matrix} differ from the original dataset?
+Gene Matrix contains only the genes, while the original data contains predictors such as BM, Gender, Sourc, Cancer etc.
+
+\color{NavyBlue}
+
+While the original dataset contains phenotype information in the first six columns, \texttt{gene.matrix} only consists of the gene expression data from the last 7,129 columns of \texttt{Golub}.
+
+\color{Black}
+
+
+Plot a histogram showing the distribution of the expression levels of the second gene across patients. Describe the distribution.
+
+```{r}
+library(tidyverse)
+
+hist(gene.matrix[,2], breaks=40, xlab=colnames(gene.matrix)[2], col="blue", main=paste("Distribution of ", colnames(gene.matrix)[2], sep=""))
+```
+
+Create a logical variable, \texttt{leuk.type}, that has value \texttt{1} for AML and value \texttt{0} for anything that is not AML (i.e., \texttt{allT} and \texttt{allB}).
+
+```{r, eval = TRUE}
+#create logical variable
+leuk.type = (Golub$cancer)
+
+#view summary of leukemia types
+table(leuk.type)
+```
+
+How many patients are there with AML? How many with ALL?
+
+AML = 25, ALLB = 38, ALLT = 9, ALL=47
+
+### Some ideas for developing a project 
+These are some ideas. Feel free to come up with your own 
+
+#### Comparing classifiers
+ - Try different classification algorithms and compare AUC. 
+ 
+#### Comparing methods to control FDR
+ - Compare methods to control the false discovery rate (FDR): understand why in the presence of multiple tests, the FDR increases. Two methods to control FDR are (1) Storey's q value approach (2) Simulation (see code).
+ Suggested steps: 
+  - Filter the 7100 genes and select the top 20% of most variable genes. 
+  - Randomly select 10 AML and 18 ALL to leave out as a test set. 
+  - In the remaining 15 AML and 29 ALL, use a t test to test difference between ALL and AML 
+  - Control the FDR using each of the two approaches and select the genes that meet FDR < 0.05 
+  - Train a classifier using the selected genes using each of the FDR approach above. 
+  - Test the classifier using the test set defined above.
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#randomize data and then select 36 observations from the data
+  
+  
+  
+  
+```{r}
+#rewrite allb and allt as all
+Golub <- Golub %>%
+  mutate(cancer = recode(cancer, 'allB' = 'all', 'allT' = 'all'))
+
+  
+```
+  
+
+```{r}
+# install, load glmnet
+set.seed(01)
+#install.packages("glmnet", dependencies = TRUE)
+
+## define matrix of predictors (in this case its the gene.atrix
+
+
+gene.matrix
+## define outcome (Survival)
+y = Golub[,6]
+x = data.frame(gene.matrix)
+
+
+
+## generate design matrix
+formula <- as.formula(paste("y ~ -1+",paste(names(x),collapse = "+")))
+design.x <- model.matrix(formula, data = data.frame(x,y))
+
+## fit model, alpha=1 corresponds to the lasso penalty
+fit=glmnet(x=design.x, y, family = "binomial", alpha=1, standardize = TRUE)
+fit
+## The output has columns Df, %Dev and Lambda
+## Lambda = value of penalty 
+## df = number of nonzero coefficients at that Lambda
+## %Dev = percent of the null deviance explained by the model (higher the better)
+
+
+cvfit = cv.glmnet(x=design.x, y=y, family = "binomial", nfolds=10, type.measure = "class")
+plot(cvfit)
+```
+
+
+```{r}
+cvfit$lambda.min
+
+```
+
+```{r}
+pred.val <- predict(fit, newx = gene.matrix, s = cvfit$lambda.min)
+library(ROCit)
+ROCit_obj <- rocit(score=pred.val[,1], class = y)
+par(pty = "s")
+plot(ROCit_obj)
+```
+
+
+```{r}
+pred.class <- predict(fit, newx = design.x, s = cvfit$lambda.min, type = "class")
+confusionMatrix(as.factor(pred.class[,1]),y)
+```
+
+```{r}
+temp <-coef(cvfit, s = cvfit$lambda.min)
+
+
+beta <- temp[temp!=0]
+names(beta) <- temp@Dimnames[[1]][temp@i+1]
+
+beta
+```
+
+```{r}
+glm.fit=glm(Purchase~.,data=Caravan,family=binomial,subset=-test)
+
+## predict the response in the test dataset
+glm.probs=predict(glm.fit,Caravan[test,],type="response")
+
+## Use 0.5 as threshold to contact a person about a sale. 
+## what proportion of those contacted bought insurance? 
+glm.pred=rep("No",1000)
+glm.pred[glm.probs>.5]="Yes"
+table(glm.pred,test.Y)
+
+## Use 0.25 as threshold to contact a person about a sale. 
+## what proportion of those contacted bought insurance? 
+
+```
+
+
+```{r}
+
+glm.fit=glm(Cancer~.,data=Golub,family=binomial,subset=-test)
+
+```
+
+
+```{r}
+test=1:1000
+train.X=gene.matrix[-test,]
+test.X =  gene.matrix[test,]
+train.Y=cancer[-test]
+test.Y=cancer[test]
+set.seed(1)
+```
+
+
+
+
+```{r}
+install.packages("pheatmap")
+```
+
+
+#Random selected heatmap
+
+#Exploratory Data Analysis.
+
+We've selected 20 randomly selected variables 
+
+
+ 
+```{r}
+beta1 <- beta[-1]
+
+names_to_select <- c(names(beta1))
+which_names <- which(names(Golub) %in% names_to_select)
+selected_genes <- Golub[which_names]
+
+library(pheatmap)
+
+#scaling first :/
+
+scaled_genes <- t(scale(t(selected_genes)))
+
+scaled_genes[scaled_genes > 1] <- 1
+
+pheatmap(scaled_genes, scale = "none")
+
+```
+ 
+ 
+ 
+```{r}
+set.seed(9)
+randome_genes <- sample(colnames(gene.matrix), 23)
+
+randome_genes_to_select <- randome_genes
+which_random_names <- which(names(Golub) %in% randome_genes_to_select)
+selected_random_genes <- Golub[which_random_names]
+
+#stand_randome_heat <- pheatmap(selected_random_genes, scale = "row")
+#un_randome_test <-pheatmap(selected_random_genes, scale = "none")
+
+
+
+```
+ 
+ 
+```{r}
+randome_genes_to_select <- randome_genes
+which_random_names <- which(names(Golub) %in% randome_genes_to_select)
+selected_random_genes <- Golub[which_random_names]
+
+
+scaled_r <- t(scale(t(selected_random_genes)))
+
+scaled_r[scaled_r > 1] <- 1
+
+pheatmap(scaled_r, scale = "none")
+
+```
+  
+ 
+ 
+ 
+ 
+ We can expect that our 20 selected genes are very powerful and are able to distinguish aml and all, 
+ 
+ 
+ # Maybe choose first 20 genes to show the heatmap, and second heatmap of 20 meaninguful genes. This dataset doesn't always have a random pattern,  it doesn't have very strong pattern. However if we do some analysis (LASSO) and get some genes, we can draw another heatmap and comapre the rando heatmap and selected heatmap are different (meaning LAssso seleced genes are very meanigful)
+
+first two group high expression
+#Scale to normal distrubtion 
+
+Dimension reduction technique: p dimension 
+
+
+
+
+```{r}
+Code
+
+#First transform cancer column
+```
+
+```{r}
+Golub <- Golub %>%
+  mutate(cancer = recode(cancer, 'allB' = 'all', 'allT' = 'all'))
+```
+
+Splitting the data to 30% testing and 70% training 
+
+```{r}
+set.seed(123)  
+trainIndex <- createDataPartition(Golub$cancer, p = .7, list = FALSE, times = 1)
+trainData <- Golub[ trainIndex,]
+testData  <- Golub[-trainIndex,]
+
+# Extract predictors and response from the training set
+x_train <- as.matrix(trainData[ , -which(names(trainData) == "cancer")])
+y_train <- as.factor(trainData$cancer)
+
+```
+Setting up the matrix 
+```{r}
+#create logical variable
+leuk.type = (Golub$cancer)
+#view summary of leukemia types
+table(leuk.type)
+```
+
+```{r}
+# load required packages
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(caret)
+
+
+#create logical variable
+leuk.type = (Golub$cancer)
+#view summary of leukemia types
+table(leuk.type)
+
+#create gene.matrix, trimmed version of Golub dataset
+gene.matrix = as.matrix(Golub[,-(1:6)])
+
+Golub <- Golub |>
+  mutate(cancer = recode(cancer, 'allB' = 'all', 'allT' = 'all'))
+
+set.seed(234) 
+trainIndex <- createDataPartition(Golub$cancer, p = .7, list = FALSE, times = 1)
+trainData <- Golub[ trainIndex,]
+testData  <- Golub[-trainIndex,]
+
+# Extract predictors and response from the training set
+x_train <- as.matrix(trainData[ , -(1:6)])
+y_train <- as.factor(trainData$cancer)
+
+#install.packages("glmnet", dependencies = TRUE)
+library(glmnet)
+
+
+## define outcome (Cnacer)
+y = Golub[,6]
+x = data.frame(gene.matrix)
+
+## generate design matrix
+formula <- as.formula(paste("y ~ -1+",paste(names(x),collapse = "+")))
+design.x <- model.matrix(formula, data = data.frame(x,y))
+
+## fit model, alpha=1 corresponds to the lasso penalty
+fit=glmnet(x=x_train, y = y_train, family = "binomial", alpha=1, standardize = TRUE)
+fit
+
+#Perform LASSO
+set.seed(234)
+cvfit = cv.glmnet(x = x_train, y = y_train, family = "binomial", alpha = 1, type.measure = "class")
+plot(cvfit)
+
+# Select the best lambda
+best_lambda <- cvfit$lambda.min
+best_lambda
+
+# Get the coefficients of the model with the best lambda
+lasso_model <- glmnet(x_train, y_train, family = "binomial", alpha = 1, lambda = best_lambda)
+important_features <- coef(cvfit, s = cvfit$lambda.min)[,1]
+important_features <- important_features[important_features != 0]  # Non-zero coefficients
+
+# Extract names of selected features
+selected_genes <- names(important_features)[-1]  # Remove intercept
+
+# Prepare training and testing data with selected features
+train_selected <- trainData[, c("cancer", selected_genes)]
+test_selected <- testData[, c("cancer", selected_genes)]
+
+# Train a final model using the selected features
+model.fit <- glmnet(as.matrix(train_selected[, -1]), train_selected$cancer, family = "binomial", alpha = 1, lambda = best_lambda)
+# Make predictions on the test set
+pred.val <- predict(model.fit, newx = as.matrix(test_selected[, -1]), s = best_lambda)
+
+# Convert predictions to factor levels
+predictions <- ifelse(pred.val > 0.5, "aml", "all")
+predictions <- factor(predictions, levels = levels(test_selected$cancer))
+
+# Evaluate the performance of the model
+confusion <- confusionMatrix(predictions, test_selected$cancer)
+```
+
+```{r}
+View(important_features)
+```
+
+
+```{r}
+important_features_3 <- important_features[-1]
+
+kat_features <- c(names(important_features_3))
+which_names_2 <- which(names(Golub) %in% kat_features)
+selected_genes1 <- Golub[which_names_2]
+
+library(pheatmap)
+
+#scaling first :/
+
+scaled_genes1 <- t(scale(t(selected_genes1)))
+
+scaled_genes1[scaled_genes1 > 1] <- 1
+
+pheatmap(scaled_genes1, scale = "none")
+```
+
+
+```{r}
+finalPredModel = glmnet(x=design.x, y, family = "binomial", alpha=1, standardize = TRUE, lambda = cvfit$lambda.min)
+finalCoefs = coef(finalPredModel)
+finalBeta <- finalCoefs[finalCoefs!=0]
+names(finalBeta) <- finalCoefs@Dimnames[[1]][finalCoefs@i+1]
+finalBeta
+
+```
+
+
+```{r}
+all(names(finalBeta)== names(beta))
+```
+
+```{r}
+# Install and load necessary packages
+#install.packages("kableExtra")
+library(kableExtra)
+
+# Create a data frame with the values
+data <- data.frame(
+  Metrics = c("Accuracy", "95% CI", "NIR", "P-Value [Acc > NIR]", "Sensitivity", 
+              "Specificity", "Positive Predictive Value", "Negative Predictive Value", 
+              "Prevalence", "Detection Rate", "Detection Prevalence", "Balanced Accuracy"),
+  `5-Fold Cross Validation` = c("0.9167", "(0.8274, 0.9688)", "0.6528", "1.946e-07", "0.9574", 
+                                 "0.84", "0.9184", "0.9130", "0.6528", "0.6250", "0.6806", "0.8987"),
+  `Data Splitting 3-7` = c("0.9048", "(0.6962, 0.9883)", "0.6667", "0.01283", "1.000", 
+                            "0.7143", "0.8750", "1.000", "0.6667", "0.6667", "0.7619", "0.8571")
+)
+
+# Print the table using kableExtra
+kbl(data, "latex") %>%
+  kable_paper(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
